@@ -1,0 +1,10 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+build/
+app/build/
+app/src/main/jniLibs/
+app/src/main/java/org/drinkless/
+gradle/wrapper/gradle-wrapper.jar
+.DS_Store

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TG Watch</string>
+    <string name="hint_phone">Номер телефона</string>
+    <string name="hint_code">Код из Telegram</string>
+    <string name="hint_password">Пароль (2FA)</string>
+    <string name="btn_next">Далее</string>
+    <string name="hint_message">Сообщение…</string>
+    <string name="btn_send">➤</string>
+    <string name="notif_channel_name">Фоновая синхронизация</string>
+    <string name="notif_running">TG Watch работает в фоне</string>
+</resources>
