@@ -5,12 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch: {}
 
-env:
-  TD_TAG: v1.8.0
-  OPENSSL_TAG: master
-  NDK_VERSION: 26.1.10909125
-  ANDROID_PLATFORM: android-24
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,18 +14,11 @@ jobs:
         with:
           path: app-repo
 
-      - name: Checkout TDLib source
+      - name: Checkout TDLib source (full, needs example/android/Dockerfile)
         uses: actions/checkout@v4
         with:
           repository: tdlib/td
-          ref: ${{ env.TD_TAG }}
           path: td-src
-
-      - name: Checkout prebuilt OpenSSL for Android
-        uses: actions/checkout@v4
-        with:
-          repository: gcesarmza/android-openssl
-          path: android-openssl
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -39,49 +26,31 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK and CMake
-        run: |
-          sdkmanager --install "ndk;${{ env.NDK_VERSION }}" "cmake;3.22.1"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}" >> "$GITHUB_ENV"
-
-      - name: Build TDLib JNI library for all ABIs
+      # Официальный способ сборки TDLib под Android: Dockerfile из
+      # td/example/android сам скачивает Android SDK/NDK, собирает OpenSSL
+      # и саму TDLib, и кладёт результат в ./tdlib (см.
+      # https://github.com/tdlib/td/blob/master/example/android/README.md)
+      - name: Build TDLib for Android via official Docker script
+        working-directory: td-src/example/android
         run: |
           set -e
-          cd td-src
-          mkdir -p build
-          OPENSSL_DIR="$GITHUB_WORKSPACE/android-openssl"
-          for ABI in armeabi-v7a arm64-v8a x86 x86_64; do
-            echo "=== Building for $ABI ==="
-            BUILD_DIR="build/$ABI"
-            mkdir -p "$BUILD_DIR"
-            cmake -B "$BUILD_DIR" -S . \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
-              -DANDROID_ABI="$ABI" \
-              -DANDROID_PLATFORM="${{ env.ANDROID_PLATFORM }}" \
-              -DOPENSSL_ROOT_DIR="$OPENSSL_DIR/$ABI" \
-              -DOPENSSL_INCLUDE_DIR="$OPENSSL_DIR/include" \
-              -DTD_ENABLE_JNI=ON
-            cmake --build "$BUILD_DIR" --target tdjni -- -j"$(nproc)"
-          done
+          docker build --output tdlib .
+          echo "=== contents of tdlib/ output ==="
+          find tdlib -maxdepth 4 | head -100
 
       - name: Collect native libraries into app module
         run: |
           set -e
-          mkdir -p app-repo/app/src/main/jniLibs/armeabi-v7a
-          mkdir -p app-repo/app/src/main/jniLibs/arm64-v8a
-          mkdir -p app-repo/app/src/main/jniLibs/x86
-          mkdir -p app-repo/app/src/main/jniLibs/x86_64
+          DEST_BASE="app-repo/app/src/main/jniLibs"
+          mkdir -p "$DEST_BASE"/armeabi-v7a "$DEST_BASE"/arm64-v8a "$DEST_BASE"/x86 "$DEST_BASE"/x86_64
           for ABI in armeabi-v7a arm64-v8a x86 x86_64; do
-            SO_FILE=$(find "td-src/build/$ABI" -name "libtdjni.so" | head -n 1)
+            SO_FILE=$(find td-src/example/android/tdlib -ipath "*$ABI*libtdjni.so" | head -n 1)
             if [ -z "$SO_FILE" ]; then
-              echo "::error::libtdjni.so not found for $ABI"
+              echo "::error::libtdjni.so not found for $ABI — смотри вывод предыдущего шага 'find tdlib'"
               exit 1
             fi
-            cp "$SO_FILE" "app-repo/app/src/main/jniLibs/$ABI/libtdjni.so"
+            cp "$SO_FILE" "$DEST_BASE/$ABI/libtdjni.so"
+            echo "OK $ABI -> $SO_FILE"
           done
 
       - name: Collect generated Java bindings (TdApi.java, Client.java)
@@ -89,10 +58,10 @@ jobs:
           set -e
           DEST="app-repo/app/src/main/java/org/drinkless/tdlib"
           mkdir -p "$DEST"
-          TDAPI_FILE=$(find td-src/build -name "TdApi.java" | head -n 1)
-          CLIENT_FILE=$(find td-src -name "Client.java" | head -n 1)
-          if [ -z "$TDAPI_FILE" ]; then
-            echo "::error::TdApi.java not found — проверь версию TD_TAG / путь генерации"
+          TDAPI_FILE=$(find td-src/example/android/tdlib -name "TdApi.java" | head -n 1)
+          CLIENT_FILE=$(find td-src/example/android/tdlib -name "Client.java" | head -n 1)
+          if [ -z "$TDAPI_FILE" ] || [ -z "$CLIENT_FILE" ]; then
+            echo "::error::TdApi.java/Client.java не найдены — смотри вывод предыдущего шага 'find tdlib'"
             exit 1
           fi
           cp "$TDAPI_FILE" "$DEST/TdApi.java"
