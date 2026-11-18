@@ -36,7 +36,12 @@ jobs:
           set -e
           docker build --output tdlib .
           echo "=== contents of tdlib/ output ==="
-          find tdlib -maxdepth 4 | head -100
+          find tdlib -maxdepth 2
+          echo "=== unzipping tdlib.zip ==="
+          mkdir -p tdlib/unpacked
+          unzip -q tdlib/tdlib.zip -d tdlib/unpacked
+          echo "=== contents after unzip ==="
+          find tdlib/unpacked -maxdepth 5 | head -200
 
       - name: Collect native libraries into app module
         run: |
@@ -44,7 +49,7 @@ jobs:
           DEST_BASE="app-repo/app/src/main/jniLibs"
           mkdir -p "$DEST_BASE"/armeabi-v7a "$DEST_BASE"/arm64-v8a "$DEST_BASE"/x86 "$DEST_BASE"/x86_64
           for ABI in armeabi-v7a arm64-v8a x86 x86_64; do
-            SO_FILE=$(find td-src/example/android/tdlib -ipath "*$ABI*libtdjni.so" | head -n 1)
+            SO_FILE=$(find td-src/example/android/tdlib/unpacked -ipath "*$ABI*libtdjni.so" | head -n 1)
             if [ -z "$SO_FILE" ]; then
               echo "::error::libtdjni.so not found for $ABI — смотри вывод предыдущего шага 'find tdlib'"
               exit 1
@@ -58,8 +63,8 @@ jobs:
           set -e
           DEST="app-repo/app/src/main/java/org/drinkless/tdlib"
           mkdir -p "$DEST"
-          TDAPI_FILE=$(find td-src/example/android/tdlib -name "TdApi.java" | head -n 1)
-          CLIENT_FILE=$(find td-src/example/android/tdlib -name "Client.java" | head -n 1)
+          TDAPI_FILE=$(find td-src/example/android/tdlib/unpacked -name "TdApi.java" | head -n 1)
+          CLIENT_FILE=$(find td-src/example/android/tdlib/unpacked -name "Client.java" | head -n 1)
           if [ -z "$TDAPI_FILE" ] || [ -z "$CLIENT_FILE" ]; then
             echo "::error::TdApi.java/Client.java не найдены — смотри вывод предыдущего шага 'find tdlib'"
             exit 1
