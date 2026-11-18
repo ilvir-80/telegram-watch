@@ -26,15 +26,23 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Docker Buildx (for layer caching)
+        uses: docker/setup-buildx-action@v3
+
       # Официальный способ сборки TDLib под Android: Dockerfile из
       # td/example/android сам скачивает Android SDK/NDK, собирает OpenSSL
       # и саму TDLib, и кладёт результат в ./tdlib (см.
       # https://github.com/tdlib/td/blob/master/example/android/README.md)
+      # Кэш слоёв в GitHub Actions cache — повторные сборки без изменений
+      # в Dockerfile/исходниках TDLib займут минуты, а не ~час.
       - name: Build TDLib for Android via official Docker script
         working-directory: td-src/example/android
         run: |
           set -e
-          docker build --output tdlib .
+          docker buildx build --output tdlib \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            .
           echo "=== contents of tdlib/ output ==="
           find tdlib -maxdepth 2
           echo "=== unzipping tdlib.zip ==="

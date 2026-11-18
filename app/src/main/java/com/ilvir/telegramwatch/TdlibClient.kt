@@ -182,7 +182,7 @@ object TdlibClient {
 
     fun sendText(chatId: Long, text: String) {
         val content = TdApi.InputMessageText(TdApi.FormattedText(text, arrayOf()), null, true)
-        send(TdApi.SendMessage(chatId, 0, null, null, null, content)) { }
+        send(TdApi.SendMessage(chatId, null, null, null, null, content)) { }
     }
 
     fun openChat(chatId: Long) {
@@ -193,7 +193,7 @@ object TdlibClient {
         send(TdApi.CloseChat(chatId)) { }
     }
 
-    private fun send(function: TdApi.Function, handler: (TdApi.Object) -> Unit) {
+    private fun send(function: TdApi.Function<*>, handler: (TdApi.Object) -> Unit) {
         client?.send(function) { result -> handler(result) }
     }
 }
