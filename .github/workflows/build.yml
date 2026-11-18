@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  TD_TAG: v1.8.29
+  TD_TAG: v1.8.0
   OPENSSL_TAG: master
   NDK_VERSION: 26.1.10909125
   ANDROID_PLATFORM: android-24
